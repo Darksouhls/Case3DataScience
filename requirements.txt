@@ -5,6 +5,6 @@ pandas
 pathlib
 numpy
 datetime
-sklearn
+scikit-learn
 folium
 streamlit_folium
