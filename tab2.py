@@ -18,7 +18,6 @@ def load_tab2():
         return None  # Retourneer None als er een fout is
 
     df = load_data('schedule_airport.csv', ',')  # Leest het CSV-bestand
-    check = load_data('schedule_airport.csv', ',')  # Leest het CSV-bestand
 
     df['STA_STD_ltc'] = pd.to_datetime(df['STA_STD_ltc'], format = '%H:%M:%S' , errors = 'coerce')
     df['ATA_ATD_ltc'] = pd.to_datetime(df['ATA_ATD_ltc'], format = '%H:%M:%S' , errors = 'coerce')
@@ -79,11 +78,37 @@ def load_tab2():
     #   Data inladen nieuwe soort plotjes
     #-------------------------------------------------------    
 
+    @st.cache_data
+    def df_change(land):
+        # Haal de gegevens op voor de geselecteerde continenten en datum
+        change = merge_df[merge_df['Country'] == land]
+        return change
+
+    df_airports = load_data('airports-extended-clean.csv', ';')
+
     df2 = df_cleaned
     df2['month'] = df2['STD'].dt.to_period('M')
-    monthly_data = df2.groupby('month').agg({
-        'Delay_Minutes': 'mean',
-        'FLT': 'count',
+
+    @st.cache_data
+    # functie om bestanden samen te voegen
+    def merging(dataset1, dataset2, left, right, how):
+        merge = pd.merge(dataset1, dataset2, left_on=left, right_on=right, how=how)
+        return merge
+
+    merge_df = merging(df_airports, df2, 'ICAO', 'Org/Des', 'inner')
+
+
+    beschikbaar_land = merge_df['Country'].unique()
+    geselecteerde_land = st.selectbox(
+        'Selecteer Land', 
+        beschikbaar_land,
+    )
+
+    country_df = df_change(geselecteerde_land)
+
+    monthly_data = country_df.groupby('month').agg({
+    'Delay_Minutes': 'mean',
+    'FLT': 'count',
     })
 
     monthly_data['inbound_vluchten'] = (monthly_data['FLT'] * 0.4).astype(int)
@@ -108,7 +133,7 @@ def load_tab2():
         monthly_data, 
         x=monthly_data.index.astype(str), 
         y='Delay_Minutes', 
-        title='Grafiek 1: Werkelijke Vertragingen voor Uitgaande Vluchten (2019-2020)',
+        title='Grafiek 1: Werkelijke Vertragingen voor Uitgaande Vluchten voor ' + geselecteerde_land + ' (2019-2020)',
         labels={'Delay_Minutes': 'Gemiddelde Vertraging (Minuten)', 'index': 'Maand'},
         markers=True
     )
@@ -146,7 +171,7 @@ def load_tab2():
         voorspelling_df, 
         x='Maand', 
         y='Voorspelde Vertragingen', 
-        title='Grafiek 2: Voorspelde Vertragingen voor Uitgaande Vluchten (2021)',
+        title='Grafiek 2: Voorspelde Vertragingen voor Uitgaande Vluchten ' + geselecteerde_land + ' (2021)',
         labels={'Voorspelde Vertragingen': 'Gemiddelde Vertraging (Minuten)', 'Maand': 'Maand'},
         markers=True
     )
@@ -191,7 +216,7 @@ def load_tab2():
         hourly_flights_df, 
         x='Uur van de Dag', 
         y='Aantal Uitgaande Vluchten', 
-        title='Grafiek 3: Drukte per Uur (Uitgaande Vluchten)',
+        title='Grafiek 3: Drukte per Uur voor ' + geselecteerde_land + ' (Uitgaande Vluchten)',
         labels={'Aantal Uitgaande Vluchten': 'Aantal Uitgaande Vluchten', 'Uur van de Dag': 'Uur van de Dag'},
         markers=True
     )
@@ -233,7 +258,7 @@ def load_tab2():
         top_3_df, 
         x='Maand', 
         y='Aantal Uitgaande Vluchten', 
-        title='Grafiek 4: Top 3 Drukste Maanden voor Uitgaande Vluchten (2019-2020)',
+        title='Grafiek 4: Top 3 Drukste Maanden voor Uitgaande Vluchten voor ' + geselecteerde_land + ' (2019-2020)',
         labels={'Aantal Uitgaande Vluchten': 'Aantal Uitgaande Vluchten', 'Maand': 'Maand'},
         color_discrete_sequence=['orange']  # Zet de kleur naar oranje
     )
@@ -280,7 +305,7 @@ def load_tab2():
         seasonal_flights, 
         x='season', 
         y='FLT', 
-        title='Grafiek 5: Seizoensgebonden Drukte',
+        title='Grafiek 5: Seizoensgebonden Drukte voor ' + geselecteerde_land,
         labels={'season': 'Seizoen', 'FLT': 'Aantal Vluchten'},
         color_discrete_sequence=['orange']
     )
@@ -320,7 +345,7 @@ def load_tab2():
         weekly_flights, 
         x='day_of_week', 
         y='FLT', 
-        title='Grafiek 6: Drukte per Dag van de Week (2019-2020)',
+        title='Grafiek 6: Drukte per Dag van de Week voor ' + geselecteerde_land + ' (2019-2020)',
         labels={'day_of_week': 'Dag', 'FLT': 'Aantal Vluchten'},
         color_discrete_sequence=['lightgreen']
     )

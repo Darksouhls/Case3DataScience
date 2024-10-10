@@ -24,7 +24,7 @@ def load_tab1():
             print(f'Bestand {bestandsnaam} niet gevonden.') 
         except Exception as e:
             print(f'Fout bij het lezen van {bestandsnaam}: {e}')
-        return None  # Retourneer None als er een fout is
+            return None  # Retourneer None als er een fout is
 
     schedule_df = load_data('schedule_airport.csv', ',') 
     df_airports = load_data('airports-extended-clean.csv', ';')
@@ -300,7 +300,6 @@ def load_tab1():
     # Haal de gegevens op voor de geselecteerde periode en continenten
     continent_df = df_change(wereld_df[wereld_df['Continent'].isin(geselecteerde_continenten)]['Country'], formatted_start_date)
 
-    st.write(continent_df)
     # Zet data om naar maatschappij op basis van vluchtnummer
     maatschappij_df = continent_df
     maatschappij_df['FLT'] = maatschappij_df['FLT'].str.replace(r'\d+', '', regex=True)
