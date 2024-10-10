@@ -1,0 +1,10 @@
+streamlit
+plotly
+matplotlib
+pandas
+pathlib
+numpy
+datetime
+sklearn
+folium
+streamlit_folium
