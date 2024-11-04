@@ -1,36 +1,93 @@
 import streamlit as st
 import pandas as pd
-from pathlib import Path
-import plotly.express as px
 import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import datetime
+import matplotlib.pyplot as plt
+import plotly.express as px
+from sklearn.linear_model import LinearRegression
 
 def load_tab1():
-
-    #-------------------------------
-    # Inladen en bewerken Datasets
-    #-------------------------------
-
     @st.cache_data
-    #functie om bestanden in te laden met bijbehorende scheidingsteken
-    def load_data(bestandsnaam, scheidingsteken): 
+    def load_data(bestandsnaam, scheidingsteken):
         try:
             schedule = pd.read_csv(bestandsnaam, sep=scheidingsteken)  # Lees het CSV-bestand
             return schedule  # Retourneer de DataFrame
         except FileNotFoundError:
-            print(f'Bestand {bestandsnaam} niet gevonden.') 
+            print(f'Bestand {bestandsnaam} niet gevonden.')
         except Exception as e:
             print(f'Fout bij het lezen van {bestandsnaam}: {e}')
-            return None  # Retourneer None als er een fout is
+        return None  # Retourneer None als er een fout is
 
-    schedule_df = load_data('schedule_airport.csv', ',') 
+    df = load_data('schedule_airport.csv', ',')  # Leest het CSV-bestand
+
+    df['STA_STD_ltc'] = pd.to_datetime(df['STA_STD_ltc'], format = '%H:%M:%S' , errors = 'coerce')
+    df['ATA_ATD_ltc'] = pd.to_datetime(df['ATA_ATD_ltc'], format = '%H:%M:%S' , errors = 'coerce')
+
+    df['Delay_Minutes'] = (df['ATA_ATD_ltc'] - df['STA_STD_ltc']).dt.total_seconds() / 60
+    df_cleaned = df.dropna(subset = ['Delay_Minutes'])
+
+    df_cleaned['STD'] = pd.to_datetime(df_cleaned['STD'], format = '%d/%m/%Y', errors = 'coerce')
+    daily_delay = df_cleaned.groupby(df_cleaned['STD'].dt.date)['Delay_Minutes'].mean()
+
+    #-------------------------------------------------
+    #  plot 1
+    #-------------------------------------------------
+    st.header('Voorspelling vluchten vertraging')
+    # Bereid de data voor
+    X = np.array(pd.to_datetime(daily_delay.index).astype('int64').values.reshape(-1, 1))  # Wijziging hier
+    y = daily_delay.values
+
+    # Maak een model voor de regressie
+    model = LinearRegression()
+    model.fit(X, y)
+
+    # Voorspel de vertragingen van 2021
+    future_dates = pd.date_range(start='2019-01-01', end='2021-12-31')
+    X_future = np.array(future_dates.astype('int64').values.reshape(-1, 1))  # Wijziging hier
+    predictions = model.predict(X_future)
+
+    # Zet de voorspellingen om naar een DataFrame voor Plotly
+    predictions_df = pd.DataFrame({
+        'Datum': future_dates,
+        'Voorspelling': predictions
+    })
+
+    # Maak een DataFrame voor de daadwerkelijke data
+    actual_data_df = pd.DataFrame({
+        'Datum': daily_delay.index,
+        'Gemiddelde Vertraging': daily_delay.values
+    })
+
+    # Maak de Plotly Express plot
+    fig = px.line(actual_data_df, x='Datum', y='Gemiddelde Vertraging', 
+                title='Gemiddelde dagelijkse vluchtvertraging in de tijd met voorspelling voor 2021', 
+                markers=True, labels={'Gemiddelde Vertraging': 'Gemiddelde Vertraging (Minuten)'})
+
+    # Voeg de voorspelling toe aan de plot
+    fig.add_scatter(x=predictions_df['Datum'], y=predictions_df['Voorspelling'], mode='lines', 
+                    name='Voorspelling 2021', line=dict(color='red', dash='dash'))
+
+    # Pas de layout aan
+    fig.update_layout(xaxis_title='Datum', yaxis_title='Gemiddelde Vertraging (Minuten)', 
+                    xaxis_tickangle=-45)
+    fig.update_layout(width = 1000, height = 700)
+    # Laat de plot zien in Streamlit
+    st.plotly_chart(fig)
+
+    st.markdown('---')
+    #-------------------------------------------------------
+    #   Data inladen nieuwe soort plotjes
+    #-------------------------------------------------------    
+
+    @st.cache_data
+    def df_change(land):
+        # Haal de gegevens op voor de geselecteerde continenten en datum
+        change = merge_df[merge_df['Country'] == land]
+        return change
+
     df_airports = load_data('airports-extended-clean.csv', ';')
-    wereld_df = load_data('Countries by continents.csv', ',')
 
-    df_airports['ICAO'].dropna()
-    schedule_df['LSV'] = schedule_df['LSV'].replace({'L': 'Inbound', 'S': 'Outbound'}).dropna()
+    df2 = df_cleaned
+    df2['month'] = df2['STD'].dt.to_period('M')
 
     @st.cache_data
     # functie om bestanden samen te voegen
@@ -38,400 +95,281 @@ def load_tab1():
         merge = pd.merge(dataset1, dataset2, left_on=left, right_on=right, how=how)
         return merge
 
-    merge_df = merging(df_airports, schedule_df, 'ICAO', 'Org/Des', 'inner')
+    merge_df = merging(df_airports, df2, 'ICAO', 'Org/Des', 'inner')
 
-    # Verschillende DataFrames aanmaken op basis van een bestaande DataFrame
-    vertraagd = schedule_df[schedule_df['ATA_ATD_ltc'] > schedule_df['STA_STD_ltc']]
-    optijd = schedule_df[schedule_df['ATA_ATD_ltc'] <= schedule_df['STA_STD_ltc']]
-    precies = schedule_df[schedule_df['ATA_ATD_ltc'] == schedule_df['STA_STD_ltc']]
-    eerder = schedule_df[schedule_df['ATA_ATD_ltc'] < schedule_df['STA_STD_ltc']]
-    NogateChange = schedule_df[schedule_df['GAT'] == schedule_df['TAR']]
-    gateChange = schedule_df[schedule_df['GAT'] != schedule_df['TAR']]
-
-    # Een top 5 lijst maken van een bepaalde DataFrame
-    top_5_landen_vertraagd = vertraagd['Org/Des'].value_counts().nlargest(5).index
-    top_5_landen_optijd = optijd['Org/Des'].value_counts().nlargest(5).index
-    top_5_landen_precies = precies['Org/Des'].value_counts().nlargest(5).index
-    top_5_landen_eerder = precies['Org/Des'].value_counts().nlargest(5).index
-
-    #-----------------------------------------------------
-    # Plot 1
-    #-----------------------------------------------------
-
-    st.header('Vergelijking Top 5 Vertraagde en Niet-Vertraagde Landen')
-
-    # Voeg selectievakjes toe voor gate change filters
-    toggle = st.radio("Selecteer wat je wilt zien", ('Gate Changes', 'Inbound/Outbound'), index=0)
-    show_all = st.toggle("Laat alleen de top 5 zien")
-
-    color_not_changed = '#1f77b4'  # Blauwe kleur voor "Gate has not been changed"
-    color_changed = '#ff7f0e'  # Oranje kleur voor "Gate has been changed"
-
-    fig1 = make_subplots(rows=1, cols=2, subplot_titles=("Top 5 vertraagde landen stacked",  "Top 5 optijd landen stacked"))
-
-    # Logica om "Alles" te tonen
-    if show_all:
-        fig1.add_trace(go.Histogram(x=vertraagd[vertraagd['Org/Des'].isin(top_5_landen_vertraagd)]['Org/Des'], name='Vertraagd'), 
-                    row=1, col=1)
-        fig1.add_trace(go.Histogram(x=optijd[optijd['Org/Des'].isin(top_5_landen_optijd)]['Org/Des'], name='Optijd'), 
-                    row=1, col=2)
-
-    else:
-        # Logica om "Gate Changes" te tonen
-        if toggle == 'Gate Changes':
-            show_gate_not_changed = st.checkbox('Gate has not been changed', value=True)
-            show_gate_changed = st.checkbox('Gate has been changed', value=False)
-
-            if show_gate_not_changed:
-                fig1.add_trace(go.Histogram(x=vertraagd[(vertraagd['Org/Des'].isin(top_5_landen_vertraagd)) & 
-                                                        (vertraagd['GAT'] == vertraagd['TAR'])]['Org/Des'], 
-                                            name='Gate has not been changed',
-                                            marker_color=color_not_changed,
-                                            legendgroup='Gate Status',
-                                            showlegend = True),  
-                                row=1, col=1)
-                fig1.add_trace(go.Histogram(x=optijd[(optijd['Org/Des'].isin(top_5_landen_optijd)) & 
-                                                        (optijd['GAT'] == optijd['TAR'])]['Org/Des'],
-                                            name='Gate has not been changed',
-                                            marker_color=color_not_changed,
-                                            legendgroup='Gate Status',
-                                            showlegend = False),  
-                                row=1, col=2)
-
-            if show_gate_changed:
-                fig1.add_trace(go.Histogram(x=vertraagd[(vertraagd['Org/Des'].isin(top_5_landen_vertraagd)) & 
-                                                        (vertraagd['GAT'] != vertraagd['TAR'])]['Org/Des'],
-                                            name='Gate has been changed',
-                                            marker_color=color_changed,
-                                            legendgroup='Gate Status',
-                                            showlegend = True),  
-                                row=1, col=1)
-                fig1.add_trace(go.Histogram(x=optijd[(optijd['Org/Des'].isin(top_5_landen_optijd)) & 
-                                                        (optijd['GAT'] != optijd['TAR'])]['Org/Des'], 
-                                            name='Gate has been changed',
-                                            marker_color=color_changed,
-                                            legendgroup='Gate Status',
-                                            showlegend = False),  
-                                row=1, col=2)
-                
-        # Logica om "Inbound en Outbound" vluchten te tonen
-        elif toggle == 'Inbound/Outbound':
-            show_inbound = st.checkbox('Inbound flights', value=True)
-            show_outbound = st.checkbox('Outbound flights', value=False)
-
-            if show_inbound:
-                fig1.add_trace(go.Histogram(x=vertraagd[(vertraagd['Org/Des'].isin(top_5_landen_vertraagd)) & 
-                                                        (vertraagd['LSV'] == 'Inbound')]['Org/Des'], 
-                                            name='Inbound',
-                                            marker_color=color_not_changed,
-                                            legendgroup='Inbound',
-                                            showlegend = True),  
-                                row=1, col=1)
-                fig1.add_trace(go.Histogram(x=optijd[(optijd['Org/Des'].isin(top_5_landen_optijd)) & 
-                                                        (optijd['LSV'] == 'Inbound')]['Org/Des'], 
-                                            name='Inbound',
-                                            marker_color=color_not_changed,
-                                            legendgroup='Inbound',
-                                            showlegend = False),  
-                                row=1, col=2)
-
-            if show_outbound:
-                fig1.add_trace(go.Histogram(x=vertraagd[(vertraagd['Org/Des'].isin(top_5_landen_vertraagd)) & 
-                                                        (vertraagd['LSV'] == 'Outbound')]['Org/Des'], 
-                                            name='Outbound',
-                                            marker_color=color_changed,
-                                            legendgroup='Inbound',
-                                            showlegend = True), 
-                                row=1, col=1)
-                fig1.add_trace(go.Histogram(x=optijd[(optijd['Org/Des'].isin(top_5_landen_optijd)) & 
-                                                        (optijd['LSV'] == 'Outbound')]['Org/Des'], 
-                                            name='Outbound',
-                                            marker_color=color_changed,
-                                            legendgroup='Inbound',
-                                            showlegend = False),  
-                                row=1, col=2)
-
-    fig1.update_yaxes(matches='y')
-    fig1.update_xaxes(categoryorder='total descending')
-    fig1.update_layout(barmode='stack', title_text="Vergelijking Top 5 vertraagde en optijd landen")
-
-    st.plotly_chart(fig1)
-
-    st.markdown('---')
-    #-------------------------------------------------------
-    #   Plot 2
-    #-------------------------------------------------------
-
-    st.header('Vergelijking Top 5 Niet-Vertraagde Landen')
-
-    # Voeg selectievakjes toe voor gate change filters
-    toggle_time = st.radio("Selecteer wat je wilt zien", ('All Gate Changes', 'All Inbound/Outbound'), index=0)
-    show_all_time = st.toggle("Laat alles zien")
-
-    fig2 = make_subplots(rows=1, cols=2, subplot_titles=("Top 5 landen 'eerder dan gepland'",  "Top 5 landen 'Precies op tijd'"))
-
-    # Logica om "Alles" te tonen
-    if show_all_time:
-        fig2.add_trace(go.Histogram(x=eerder[eerder['Org/Des'].isin(top_5_landen_eerder)]['Org/Des'], name='eerder'), 
-                    row=1, col=1)
-        fig2.add_trace(go.Histogram(x=precies[precies['Org/Des'].isin(top_5_landen_vertraagd)]['Org/Des'], name='precies'), 
-                    row=1, col=2)
-
-    else:
-        # Logica om "Gate Changes" te tonen
-        if toggle_time == 'All Gate Changes':
-            show_gate_not_changed_time = st.checkbox('Gate is niet veranderd', value=True)
-            show_gate_changed_time = st.checkbox('Gate is veranderd', value=False)
-
-            if show_gate_not_changed_time:
-                fig2.add_trace(go.Histogram(x=eerder[(eerder['Org/Des'].isin(top_5_landen_eerder)) & 
-                                                        (eerder['GAT'] == eerder['TAR'])]['Org/Des'], 
-                                            name='Gate has not been changed',
-                                            marker_color=color_not_changed,
-                                            legendgroup='Gate Status Time',
-                                            showlegend = True),  
-                                row=1, col=1)
-                fig2.add_trace(go.Histogram(x=precies[(precies['Org/Des'].isin(top_5_landen_precies)) & 
-                                                        (precies['GAT'] == precies['TAR'])]['Org/Des'],
-                                            name='Gate has not been changed',
-                                            marker_color=color_not_changed,
-                                            legendgroup='Gate Status Time',
-                                            showlegend = False),  
-                                row=1, col=2)
-
-            if show_gate_changed_time:
-                fig2.add_trace(go.Histogram(x=eerder[(eerder['Org/Des'].isin(top_5_landen_eerder)) & 
-                                                        (eerder['GAT'] != eerder['TAR'])]['Org/Des'],
-                                            name='Gate has been changed',
-                                            marker_color=color_changed,
-                                            legendgroup='Gate Status Time',
-                                            showlegend = True),  
-                                row=1, col=1)
-                fig2.add_trace(go.Histogram(x=precies[(precies['Org/Des'].isin(top_5_landen_precies)) & 
-                                                        (precies['GAT'] != precies['TAR'])]['Org/Des'], 
-                                            name='Gate has been changed',
-                                            marker_color=color_changed,
-                                            legendgroup='Gate Status Time',
-                                            showlegend = False),  
-                                row=1, col=2)
-                
-        # Logica om "Inbound en Outbound" vluchten te tonen
-        elif toggle_time == 'All Inbound/Outbound':
-            show_inbound_time = st.checkbox('Inkomende vluchten', value=True)
-            show_outbound_time = st.checkbox('Uitgaande vluchten', value=False)
-
-            if show_inbound_time:
-                fig2.add_trace(go.Histogram(x=eerder[(eerder['Org/Des'].isin(top_5_landen_eerder)) & 
-                                                        (eerder['LSV'] == 'Inbound')]['Org/Des'], 
-                                            name='Inbound',
-                                            marker_color=color_not_changed,
-                                            legendgroup='Inbound Time',
-                                            showlegend = True),  
-                                row=1, col=1)
-                fig2.add_trace(go.Histogram(x=precies[(precies['Org/Des'].isin(top_5_landen_precies)) & 
-                                                        (precies['LSV'] == 'Inbound')]['Org/Des'], 
-                                            name='Inbound',
-                                            marker_color=color_not_changed,
-                                            legendgroup='Inbound Time',
-                                            showlegend = False),  
-                                row=1, col=2)
-
-            if show_outbound_time:
-                fig2.add_trace(go.Histogram(x=eerder[(eerder['Org/Des'].isin(top_5_landen_eerder)) & 
-                                                        (eerder['LSV'] == 'Outbound')]['Org/Des'], 
-                                            name='Outbound',
-                                            marker_color=color_changed,
-                                            legendgroup='Inbound Time',
-                                            showlegend = True), 
-                                row=1, col=1)
-                fig2.add_trace(go.Histogram(x=precies[(precies['Org/Des'].isin(top_5_landen_precies)) & 
-                                                        (precies['LSV'] == 'Outbound')]['Org/Des'], 
-                                            name='Outbound',
-                                            marker_color=color_changed,
-                                            legendgroup='Inbound Time',
-                                            showlegend = False),  
-                                row=1, col=2)
-
-    fig2.update_yaxes(matches='y')
-    fig2.update_xaxes(categoryorder='total descending')
-    fig2.update_layout(barmode='stack', title_text="Vergelijking Top 5 optijd landen")
-
-    st.plotly_chart(fig2)
-
-    st.markdown('---')
-    #-------------------------------------------------------
-    #   Plot 3
-    #-------------------------------------------------------
-
-    # Kleuren selectie voor 'optijd', 'eerder' en 'vertraagd
-    color_optijd = '#00ff00'
-    color_eerder = '#0000ff'
-    color_vertraagd = '#ff0000'
-
-    @st.cache_data
-    def beschikbare_landen(datum):
-        # Filter continenten op basis van de datum
-        landen_met_data = merge_df[merge_df['STD'] == datum]['Country'].unique()
-        return landen_met_data
-
-    @st.cache_data
-    def df_change(continenten, datum):
-        # Haal de gegevens op voor de geselecteerde continenten en datum
-        change = merge_df[(merge_df['Country'].isin(continenten)) & (merge_df['STD'] == datum)]
-        return change
-
-    # Knop om een datum te selecteren
-    start_date = st.date_input('Selecteer datum waarop je wilt kijken', datetime.date(2019,1,1), 
-        min_value = datetime.date(2019, 1, 1), max_value = datetime.date(2020,12,31), format = 'DD/MM/YYYY')
-    formatted_start_date = start_date.strftime('%d/%m/%Y')  # Zet de datum om naar de gewenste indeling
-
-    # Haal continenten met data op voor de geselecteerde datum
-    beschikbare_landen = beschikbare_landen(formatted_start_date)
-    continenten = wereld_df[wereld_df['Country'].isin(beschikbare_landen)]['Continent'].unique()
-
-    # Multibox om een bepaalde continent te selecteren
-    geselecteerde_continenten = st.multiselect(
-        'Selecteer Continent(en)', 
-        continenten,
-        default = continenten[:3]
-    )
-
-    # Haal de gegevens op voor de geselecteerde periode en continenten
-    continent_df = df_change(wereld_df[wereld_df['Continent'].isin(geselecteerde_continenten)]['Country'], formatted_start_date)
-
-    # Zet data om naar maatschappij op basis van vluchtnummer
-    maatschappij_df = continent_df
-    maatschappij_df['FLT'] = maatschappij_df['FLT'].str.replace(r'\d+', '', regex=True)
-    maatschappij_df = maatschappij_df[maatschappij_df['FLT'] != 'LX'] # LX wordt hier eruit gefilterd, omdat het een grote maatschappij is
-    filtered_df = continent_df
-    filtered_df['FLT'] = filtered_df['FLT'].str.replace(r'\d+', '', regex=True) 
-    filtered_df = filtered_df[filtered_df['FLT'] == 'LX'] # DataFrame voor alleen LX (grote maatschappij), krijgt eigen plot
-
-    fig3 = make_subplots(rows=1, cols=2, subplot_titles=("Data voor Swiss Int. Air Lines",  "Overige Maatschappijen"))
-
-    # Maakt plot voor LX data
-    fig3.add_trace(go.Histogram(
-        x=filtered_df[filtered_df['STA_STD_ltc'] > filtered_df['ATA_ATD_ltc']]['FLT'], 
-        name='Eerder dan gepland',
-        marker_color= color_eerder,
-        legendgroup='Eerder',
-        showlegend = True
-    ), row = 1, col = 1)
-    fig3.add_trace(go.Histogram(
-        x=filtered_df[filtered_df['STA_STD_ltc'] == filtered_df['ATA_ATD_ltc']]['FLT'], 
-        name='Precies optijd',
-        marker_color = color_optijd,
-        legendgroup='Optijd',
-        showlegend = True
-    ), row = 1, col = 1)
-    fig3.add_trace(go.Histogram(
-        x=filtered_df[filtered_df['STA_STD_ltc'] < filtered_df['ATA_ATD_ltc']]['FLT'], 
-        name='Vertraagd',
-        marker_color= color_vertraagd,
-        legendgroup='Vertraagd',
-        showlegend = True
-    ), row = 1, col = 1)
-
-    # Maakt plot voor overige maatschappijen
-    fig3.add_trace(go.Histogram(
-        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] > maatschappij_df['ATA_ATD_ltc']]['FLT'], 
-        name='Eerder dan gepland',
-        marker_color = color_eerder,
-        legendgroup='Eerder',
-        showlegend = True
-    ), row = 1, col = 2)
-    fig3.add_trace(go.Histogram(
-        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] == maatschappij_df['ATA_ATD_ltc']]['FLT'], 
-        name='Precies optijd',
-        marker_color= color_optijd,
-        legendgroup='Optijd',
-        showlegend = True
-    ), row = 1, col = 2)
-    fig3.add_trace(go.Histogram(
-        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] < maatschappij_df['ATA_ATD_ltc']]['FLT'], 
-        name='Vertraagd',
-        marker_color=color_vertraagd,
-        legendgroup='Vertraagd',
-        showlegend = True
-    ), row = 1, col = 2)
-    fig3.update_xaxes(categoryorder='total descending')
-    fig3.update_layout(barmode='stack', title_text="Geplande gegevens per luchtvaartmaatschappij voor geselecteerde continent(en)")
-
-    st.plotly_chart(fig3)
-
-    #--------------------------------------
-    #   Plot 4
-    #--------------------------------------
-
-    # Kijkt naar bovenstaande geselecteerde continent en laad de mogelijke landen in
-    beschikbaar_land = continent_df[continent_df['Country'].isin(beschikbare_landen)]['Country'].unique()
-    geselecteerde_landen = st.multiselect(
-        'Selecteer Continent(en)', 
+    beschikbaar_land = merge_df['Country'].unique()
+    geselecteerde_land = st.selectbox(
+        'Selecteer Land', 
         beschikbaar_land,
-        default = beschikbaar_land[:3]
+    )
+    
+    country_df = df_change(geselecteerde_land)
+
+    # Toggle voor inbound of outbound selecteren
+    vlucht_richting = st.radio("Selecteer vluchtrichting", options=["Ingaand", "Uitgaand"])
+
+    # Filter de dataframe op basis van de geselecteerde richting
+    if vlucht_richting == "Ingaand":
+        country_df = country_df[country_df['LSV'] == 'L']  # Zorg ervoor dat de kolomnaam correct is
+    else:
+        country_df = country_df[country_df['LSV'] == 'S']  # Zorg ervoor dat de kolomnaam correct is
+
+    monthly_data = country_df.groupby('month').agg({
+    'Delay_Minutes': 'mean',
+    'FLT' : 'count',
+    })
+
+    monthly_data['month_index'] = range(1, len(monthly_data) + 1)
+
+    X = monthly_data['FLT'].values.reshape(-1, 1)
+    y = monthly_data['Delay_Minutes'].values
+    model = LinearRegression()
+    model.fit(X, y)
+
+    toekomstige_maanden_index = np.arange(len(monthly_data) + 1, len(monthly_data) + 13).reshape(-1, 1)
+    voorspellingen = model.predict(toekomstige_maanden_index)
+    voorspellingen = np.clip(voorspellingen, 0, None)
+
+    #----------------------------------------------------------
+    # Plot 2
+    #---------------------------------------------------------
+
+    # Maak een lijn grafiek vanuit de maandelijkse data
+    fig1 = px.line(
+        monthly_data, 
+        x=monthly_data.index.astype(str), 
+        y='Delay_Minutes', 
+        title='Grafiek 1: Werkelijke Vertragingen voor Uitgaande Vluchten voor ' + geselecteerde_land + ' (2019-2020)',
+        labels={'Delay_Minutes': 'Gemiddelde Vertraging (Minuten)', 'index': 'Maand'},
+        markers=True
     )
 
-    # Haal de gegevens op voor de geselecteerde periode en continenten
-    country_df = df_change(geselecteerde_landen, formatted_start_date)
+    # Pas layout aan zodat het overzichtelijk is
+    fig1.update_layout(
+        xaxis_title='Maand',
+        yaxis_title='Gemiddelde Vertraging (Minuten)',
+        xaxis_tickangle=-45,
+        template='plotly_white',
+        title_font=dict(size=16),
+        xaxis=dict(tickfont=dict(size=10)),
+        yaxis=dict(tickfont=dict(size=12)),
+        showlegend=False
+    )
 
-    # Zet data om naar maatschappij op basis van vluchtnummer
-    maatschappij_country_df = country_df
-    maatschappij_country_df['FLT'] = maatschappij_country_df['FLT'].str.replace(r'\d+', '', regex=True)
-    maatschappij_country_df = maatschappij_country_df[maatschappij_country_df['FLT'] != 'LX'] # LX wordt hier eruit gefilterd, omdat het een grote maatschappij is
-    filtered_country_df = country_df
-    filtered_country_df['FLT'] = filtered_country_df['FLT'].str.replace(r'\d+', '', regex=True) 
-    filtered_country_df = filtered_country_df[filtered_country_df['FLT'] == 'LX'] # DataFrame voor alleen LX (grote maatschappij), krijgt eigen plot
+    # Voeg een grid toe
+    fig1.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='lightgray')
+    fig1.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='lightgray')
 
-    fig4 = make_subplots(rows=1, cols=2, subplot_titles=("Data voor Swiss Int. Air Lines",  "Overige Maatschappijen"))
+    #------------------------------------------------------
+    # Plot 3
+    #------------------------------------------------------
 
-    # Maakt plot voor LX data
-    fig4.add_trace(go.Histogram(
-        x=filtered_country_df[filtered_country_df['STA_STD_ltc'] > filtered_country_df['ATA_ATD_ltc']]['FLT'], 
-        name='Eerder dan gepland',
-        marker_color= color_eerder,
-        legendgroup='Eerder',
-        showlegend = True
-    ), row = 1, col = 1)
-    fig4.add_trace(go.Histogram(
-        x=filtered_country_df[filtered_country_df['STA_STD_ltc'] == filtered_country_df['ATA_ATD_ltc']]['FLT'], 
-        name='Precies optijd',
-        marker_color = color_optijd,
-        legendgroup='Optijd',
-        showlegend = True
-    ), row = 1, col = 1)
-    fig4.add_trace(go.Histogram(
-        x=filtered_country_df[filtered_country_df['STA_STD_ltc'] < filtered_country_df['ATA_ATD_ltc']]['FLT'], 
-        name='Vertraagd',
-        marker_color= color_vertraagd,
-        legendgroup='Vertraagd',
-        showlegend = True
-    ), row = 1, col = 1)
+    # Maak een DataFrame voor de voorspelde data
+    voorspelling_df = pd.DataFrame({
+        'Maand': pd.date_range(start='2021-01-01', periods=12, freq='M'),
+        'Voorspelde Vertragingen': voorspellingen
+    })
 
-    # Maakt plot voor overige maatschappijen
-    fig4.add_trace(go.Histogram(
-        x=maatschappij_country_df[maatschappij_country_df['STA_STD_ltc'] > maatschappij_country_df['ATA_ATD_ltc']]['FLT'], 
-        name='Eerder dan gepland',
-        marker_color = color_eerder,
-        legendgroup='Eerder',
-        showlegend = True
-    ), row = 1, col = 2)
-    fig4.add_trace(go.Histogram(
-        x=maatschappij_country_df[maatschappij_country_df['STA_STD_ltc'] == maatschappij_country_df['ATA_ATD_ltc']]['FLT'], 
-        name='Precies optijd',
-        marker_color= color_optijd,
-        legendgroup='Optijd',
-        showlegend = True
-    ), row = 1, col = 2)
-    fig4.add_trace(go.Histogram(
-        x=maatschappij_country_df[maatschappij_country_df['STA_STD_ltc'] < maatschappij_country_df['ATA_ATD_ltc']]['FLT'], 
-        name='Vertraagd',
-        marker_color=color_vertraagd,
-        legendgroup='Vertraagd',
-        showlegend = True
-    ), row = 1, col = 2)
+    # Maak een lijn grafiek vanuit de voorspelde data
+    fig2 = px.line(
+        voorspelling_df, 
+        x='Maand', 
+        y='Voorspelde Vertragingen', 
+        title='Grafiek 2: Voorspelde Vertragingen voor Uitgaande Vluchten ' + geselecteerde_land + ' (2021)',
+        labels={'Voorspelde Vertragingen': 'Gemiddelde Vertraging (Minuten)', 'Maand': 'Maand'},
+        markers=True
+    )
+
+    # Pas de layout aan
+    fig2.update_traces(line=dict(color='tomato', dash='dash'))  # Zet de lijnstijl en kleur
+    fig2.update_layout(
+        xaxis_title='Maand',
+        yaxis_title='Gemiddelde Vertraging (Minuten)',
+        xaxis_tickangle=-45,
+        template='plotly_white',
+        title_font=dict(size=16),
+        xaxis=dict(tickfont=dict(size=10)),
+        yaxis=dict(tickfont=dict(size=12)),
+        showlegend=True
+    )
+
+    # Voeg een grid toe
+    fig2.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='lightgray')
+    fig2.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='lightgray')
+
+    # Voeg een legende toe
+    fig2.update_layout(legend_title_text='Legende')
+
+    #----------------------------------------------------------
+    # Plot 4
+    #----------------------------------------------------------
+    
+    country_df['departure_hour'] = country_df['STA_STD_ltc'].dt.hour
+    hourly_flights = country_df.groupby('departure_hour')['FLT'].count()
+
+    # Maak een DataFrame voor de uurlijkse vluchten
+    hourly_flights_df = pd.DataFrame({
+        'Uur van de Dag': hourly_flights.index,
+        'Aantal Uitgaande Vluchten': hourly_flights.values
+    })
+
+    # Maak de Plotly Express plot
+    fig3 = px.line(
+        hourly_flights_df, 
+        x='Uur van de Dag', 
+        y='Aantal Uitgaande Vluchten', 
+        title='Grafiek 3: Drukte per Uur voor ' + geselecteerde_land + ' (Uitgaande Vluchten)',
+        labels={'Aantal Uitgaande Vluchten': 'Aantal Uitgaande Vluchten', 'Uur van de Dag': 'Uur van de Dag'},
+        markers=True
+    )
+
+    # Pas de layout aan (zoals in je Matplotlib-code)
+    fig3.update_traces(line=dict(color='green'))  # Zet de lijnkleur naar groen
+    fig3.update_layout(
+        xaxis_title='Uur van de Dag',
+        yaxis_title='Aantal Uitgaande Vluchten',
+        xaxis_tickangle=-45,
+        template='plotly_white',
+        title_font=dict(size=16),
+        xaxis=dict(tickfont=dict(size=10)),
+        yaxis=dict(tickfont=dict(size=12)),
+        showlegend=False
+    )
+
+    # Voeg een grid toe
+    fig3.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='lightgray')
+    fig3.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='lightgray')
+
+    #-----------------------------------------------
+    # Plot 5
+    #-----------------------------------------------
+
+    # Selecteer de top 3 maanden met de meeste uitgaande vluchten
+    top_3_maanden = monthly_data['FLT'].nlargest(3)
+
+    # Maak een DataFrame voor de top 3 maanden
+    top_3_df = pd.DataFrame({
+        'Maand': top_3_maanden.index.astype(str),
+        'Aantal Uitgaande Vluchten': top_3_maanden.values
+    })
+
+    # Maak de Plotly Express bar plot
+    fig4 = px.bar(
+        top_3_df, 
+        x='Maand', 
+        y='Aantal Uitgaande Vluchten', 
+        title='Grafiek 4: Top 3 Drukste Maanden voor Uitgaande Vluchten voor ' + geselecteerde_land + ' (2019-2020)',
+        labels={'Aantal Uitgaande Vluchten': 'Aantal Uitgaande Vluchten', 'Maand': 'Maand'},
+        color_discrete_sequence=['orange']  # Zet de kleur naar oranje
+    )
+
+    # Pas de layout aan
+    fig4.update_layout(
+        xaxis_title='Maand',
+        yaxis_title='Aantal Uitgaande Vluchten',
+        xaxis_tickangle=-45,
+        template='plotly_white',
+        title_font=dict(size=16),
+        xaxis=dict(tickfont=dict(size=10)),
+        yaxis=dict(tickfont=dict(size=12))
+    )
+
     fig4.update_xaxes(categoryorder='total descending')
-    fig4.update_layout(barmode='stack', title_text="Geplande gegevens per luchtvaartmaatschappij voor geselecteerde land(en)")
 
-    st.plotly_chart(fig4)
+    #-------------------------------------------------------
+    # Plot 6
+    #-------------------------------------------------------
+
+    # Functie om het seizoen te bepalen
+    def get_season(date):
+        month = date.month
+        if month in [3, 4, 5]:
+            return 'Lente'
+        elif month in [6, 7, 8]:
+            return 'Zomer'
+        elif month in [9, 10, 11]:
+            return 'Herfst'
+        else:
+            return 'Winter'
+
+    # Voeg de kolom 'season' toe aan de DataFrame
+    country_df['season'] = country_df['STD'].apply(get_season)
+
+    # Groepeer de data op seizoen en tel het aantal vluchten per seizoen
+    seasonal_flights = country_df.groupby('season')['FLT'].count().reset_index()
+
+    # Maak een Plotly Express bar plot
+    fig5 = px.bar(
+        seasonal_flights, 
+        x='season', 
+        y='FLT', 
+        title='Grafiek 5: Seizoensgebonden Drukte voor ' + geselecteerde_land + ' ' + vlucht_richting + ' vluchten',
+        labels={'season': 'Seizoen', 'FLT': 'Aantal Vluchten'},
+        color_discrete_sequence=['orange']
+    )
+
+    # Pas de layout aan
+    fig5.update_layout(
+        xaxis_title='Seizoen',
+        yaxis_title='Aantal Vluchten',
+        xaxis_tickangle=-45,
+        template='plotly_white',
+        title_font=dict(size=16),
+        xaxis=dict(tickfont=dict(size=12)),
+        yaxis=dict(tickfont=dict(size=12)),
+        showlegend=False
+    )
+
+    #-----------------------------------------------
+    # Plot 7
+    #-----------------------------------------------
+
+    # Voeg de kolom 'day_of_week' toe aan de DataFrame
+    country_df['day_of_week'] = country_df['STD'].dt.day_name()
+
+    # Groepeer de data op dag van de week en tel het aantal vluchten per dag
+    weekly_flights = country_df.groupby('day_of_week')['FLT'].count().reset_index()
+
+    # Sorteer de dagen in de juiste volgorde
+    days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    weekly_flights['day_of_week'] = pd.Categorical(weekly_flights['day_of_week'], categories=days_order, ordered=True)
+    weekly_flights = weekly_flights.sort_values('day_of_week')
+
+    # Maak een Plotly Express bar plot
+    fig6 = px.bar(
+        weekly_flights, 
+        x='day_of_week', 
+        y='FLT', 
+        title='Grafiek 6: Drukte per Dag van de Week voor ' + geselecteerde_land + ' ' + vlucht_richting + ' vluchten (2019-2020)',
+        labels={'day_of_week': 'Dag', 'FLT': 'Aantal Vluchten'},
+        color_discrete_sequence=['lightgreen']
+    )
+
+    # Pas de layout aan
+    fig6.update_layout(
+        xaxis_title='Dag van de Week',
+        yaxis_title='Aantal Vluchten',
+        xaxis_tickangle=-45,
+        template='plotly_white',
+        title_font=dict(size=16),
+        xaxis=dict(tickfont=dict(size=12)),
+        yaxis=dict(tickfont=dict(size=12)),
+        showlegend=False
+    )
+
+    # Plot de grafieken in Streamlit
+    col1, col2 = st.columns(2)
+
+        # Plaats de eerste grafiek in de eerste kolom
+    with col1:
+        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig5, use_container_width=True)
+
+    # Plaats de tweede grafiek in de tweede kolom
+    with col2:
+        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig6, use_container_width=True)
 
     return load_tab1
