@@ -172,7 +172,7 @@ beschikbare_landen = beschikbare_landen(formatted_start_date, formatted_end_date
         gedeeltdoor elkaar gedaan om zo op het ratio vertraagde vluchten vergeleken met alle vluchten te berekenen.")
 
         st.code(code_ratio, language="python")
-
+        st.markdown("---")
     else: 
         st.header("Overige aanpassingen")
         st.markdown("---")
