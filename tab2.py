@@ -105,21 +105,21 @@ def load_tab2():
 
     # Maakt plot voor LX data
     fig1.add_trace(go.Histogram(
-        x=filtered_df[filtered_df['STA_STD_ltc'] > filtered_df['ATA_ATD_ltc']]['Name_y'], 
+        x=filtered_df[filtered_df['STA_STD_ltc'] > filtered_df['ATA_ATD_ltc']]['Airline'], 
         name='Eerder dan gepland',
         marker_color= color_eerder,
         legendgroup='Eerder',
         showlegend = True
     ), row = 1, col = 1)
     fig1.add_trace(go.Histogram(
-        x=filtered_df[filtered_df['STA_STD_ltc'] == filtered_df['ATA_ATD_ltc']]['Name_y'], 
+        x=filtered_df[filtered_df['STA_STD_ltc'] == filtered_df['ATA_ATD_ltc']]['Airline'], 
         name='Precies optijd',
         marker_color = color_optijd,
         legendgroup='Optijd',
         showlegend = True
     ), row = 1, col = 1)
     fig1.add_trace(go.Histogram(
-        x=filtered_df[filtered_df['STA_STD_ltc'] < filtered_df['ATA_ATD_ltc']]['Name_y'], 
+        x=filtered_df[filtered_df['STA_STD_ltc'] < filtered_df['ATA_ATD_ltc']]['Airline'], 
         name='Vertraagd',
         marker_color= color_vertraagd,
         legendgroup='Vertraagd',
@@ -128,21 +128,21 @@ def load_tab2():
 
     # Maakt plot voor overige maatschappijen
     fig1.add_trace(go.Histogram(
-        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] > maatschappij_df['ATA_ATD_ltc']]['Name_y'], 
+        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] > maatschappij_df['ATA_ATD_ltc']]['Airline'], 
         name='Eerder dan gepland',
         marker_color = color_eerder,
         legendgroup='Eerder',
         showlegend = True
     ), row = 1, col = 2)
     fig1.add_trace(go.Histogram(
-        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] == maatschappij_df['ATA_ATD_ltc']]['Name_y'], 
+        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] == maatschappij_df['ATA_ATD_ltc']]['Airline'], 
         name='Precies optijd',
         marker_color= color_optijd,
         legendgroup='Optijd',
         showlegend = True
     ), row = 1, col = 2)
     fig1.add_trace(go.Histogram(
-        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] < maatschappij_df['ATA_ATD_ltc']]['Name_y'], 
+        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] < maatschappij_df['ATA_ATD_ltc']]['Airline'], 
         name='Vertraagd',
         marker_color=color_vertraagd,
         legendgroup='Vertraagd',
@@ -167,7 +167,6 @@ def load_tab2():
 
     # Haal de gegevens op voor de geselecteerde periode en continenten
     country_df = df_change(geselecteerde_landen, formatted_start_date, formatted_end_date)
-    country_df.rename(columns={"Name_y": "Airline"}, inplace = True, errors="raise")
      # Toggle voor inbound of outbound selecteren
     flight_direction = st.radio("Selecteer vluchtrichting", options=["Inbound", "Outbound"])
 
