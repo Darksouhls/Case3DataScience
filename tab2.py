@@ -242,17 +242,17 @@ def load_tab2():
         delayed_flights_per_maatschappij = delayed_flights['FLT'].value_counts()
 
         # Maak een DataFrame voor de vertragingsratio
-        ratio_table = pd.DataFrame({
+        ratio_per_maatschappij = pd.DataFrame({
             'Totale vluchten': totaal_vluchten_per_maatschappij,
             'Vertraagde vluchten': delayed_flights_per_maatschappij
         }).fillna(0)  # Vul lege waarden op met 0 voor maatschappijen zonder vertragingen
 
         # Bereken de vertragingsratio
-        ratio_table['Ratio'] = ratio_table['Vertraagde vluchten'] / ratio_table['Totale vluchten']
-        ratio_table['Ratio (%)'] = (ratio_table['Ratio'] * 100).round(2)
+        ratio_per_maatschappij['Ratio'] = ratio_per_maatschappij['Vertraagde vluchten'] / ratio_per_maatschappij['Totale vluchten']
+        ratio_per_maatschappij['Ratio (%)'] = (ratio_per_maatschappij['Ratio'] * 100).round(2)
 
         # Toon de verhoudingstabel in Streamlit
         st.write("Verhoudingstabel van Vertraagde Vluchten per Maatschappij")
-        st.dataframe(ratio_table[['Totale vluchten', 'Vertraagde vluchten', 'Ratio (%)']])
+        st.dataframe(ratio_per_maatschappij[['Totale vluchten', 'Vertraagde vluchten', 'Ratio (%)']])
 
     return load_tab2

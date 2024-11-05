@@ -104,7 +104,8 @@ def load_tab1():
     )
     
     country_df = df_change(geselecteerde_land)
-
+    luchthaven_df = df_change(geselecteerde_land)
+    luchthaven_df['LSV'] = luchthaven_df['LSV'].replace({'L': 'Inbound', 'S': 'Outbound'}).dropna()
     # Toggle voor inbound of outbound selecteren
     vlucht_richting = st.radio("Selecteer vluchtrichting", options=["Ingaand", "Uitgaand"])
 
@@ -371,5 +372,39 @@ def load_tab1():
         st.plotly_chart(fig2, use_container_width=True)
         st.plotly_chart(fig4, use_container_width=True)
         st.plotly_chart(fig6, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("Luchthaven")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        fig7 = px.histogram(
+            luchthaven_df,
+            x = 'ICAO',
+            color = 'LSV'
+        )
+
+        st.plotly_chart(fig7)
+    with col2:
+        # Bereken de totaalwaarde
+        totaal_vluchten_luchthaven = luchthaven_df.groupby('ICAO')['Airport ID'].value_counts()
+
+        # Bereken het aantal vertraagde vluchten per maatschappij
+        vertraagde_vluchten = luchthaven_df[luchthaven_df['ATA_ATD_ltc'] > luchthaven_df['STA_STD_ltc']]
+        vertraagde_vluchten_luchthaven = vertraagde_vluchten.groupby('ICAO')['Airport ID'].value_counts()
+
+        # Maak een DataFrame voor de vertragingsratio
+        ratio_luchthaven = pd.DataFrame({
+            'Totale vluchten': totaal_vluchten_luchthaven,
+            'Vertraagde vluchten': vertraagde_vluchten_luchthaven
+        }).fillna(0)  # Vul lege waarden op met 0 voor maatschappijen zonder vertragingen
+
+        # Bereken de vertragingsratio
+        ratio_luchthaven['Ratio'] = ratio_luchthaven['Vertraagde vluchten'] / ratio_luchthaven['Totale vluchten']
+        ratio_luchthaven['Ratio (%)'] = (ratio_luchthaven['Ratio'] * 100).round(2)
+
+        # Toon de verhoudingstabel in Streamlit
+        st.write("Verhoudingstabel van Vertraagde Vluchten per Luchthaven")
+        st.dataframe(ratio_luchthaven[['Totale vluchten', 'Vertraagde vluchten', 'Ratio (%)']])
 
     return load_tab1
