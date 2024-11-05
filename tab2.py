@@ -58,7 +58,7 @@ def load_tab2():
     @st.cache_data
     def beschikbare_landen(start_datum, eind_datum):
         # Filter continenten op basis van de geselecteerde periode
-        landen_met_data = merge_df[(merge_df['STD'] >= start_datum) & (merge_df['STD'] <= eind_datum)]['Country'].unique()
+        landen_met_data = merge_df[(merge_df['STD'] >= start_datum) & (merge_df['STD'] <= eind_datum)]['Country_fl'].unique()
         return landen_met_data
 
     @st.cache_data
