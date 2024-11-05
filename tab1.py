@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from sklearn.linear_model import LinearRegression
 
 def load_tab1():
@@ -140,7 +142,7 @@ def load_tab1():
         monthly_data, 
         x=monthly_data.index.astype(str), 
         y='Delay_Minutes', 
-        title='Grafiek 1: Werkelijke Vertragingen voor Uitgaande Vluchten voor ' + geselecteerde_land + ' (2019-2020)',
+        title='Grafiek 1: Werkelijke Vertragingen voor ' + vlucht_richting + ' Vluchten voor ' + geselecteerde_land + ' (2019-2020)',
         labels={'Delay_Minutes': 'Gemiddelde Vertraging (Minuten)', 'index': 'Maand'},
         markers=True
     )
@@ -176,7 +178,7 @@ def load_tab1():
         voorspelling_df, 
         x='Maand', 
         y='Voorspelde Vertragingen', 
-        title='Grafiek 2: Voorspelde Vertragingen voor Uitgaande Vluchten ' + geselecteerde_land + ' (2021)',
+        title='Grafiek 2: Voorspelde Vertragingen voor ' + vlucht_richting + ' Vluchten ' + geselecteerde_land + ' (2021)',
         labels={'Voorspelde Vertragingen': 'Gemiddelde Vertraging (Minuten)', 'Maand': 'Maand'},
         markers=True
     )
@@ -219,7 +221,7 @@ def load_tab1():
         hourly_flights_df, 
         x='Uur van de Dag', 
         y='Aantal Uitgaande Vluchten', 
-        title='Grafiek 3: Drukte per Uur voor ' + geselecteerde_land + ' (Uitgaande Vluchten)',
+        title='Grafiek 3: Drukte per Uur voor ' + geselecteerde_land + ' (' + vlucht_richting + ' Vluchten)',
         labels={'Aantal Uitgaande Vluchten': 'Aantal Uitgaande Vluchten', 'Uur van de Dag': 'Uur van de Dag'},
         markers=True
     )
@@ -246,36 +248,57 @@ def load_tab1():
     #-----------------------------------------------
 
     # Selecteer de top 3 maanden met de meeste uitgaande vluchten
+    monthly_data = monthly_data.reset_index()
+    monthly_data['month'] = monthly_data['month'].astype(str)
     top_3_maanden = monthly_data['FLT'].nlargest(3)
-
-    # Maak een DataFrame voor de top 3 maanden
-    top_3_df = pd.DataFrame({
-        'Maand': top_3_maanden.index.astype(str),
-        'Aantal Uitgaande Vluchten': top_3_maanden.values
-    })
+    colors = ['#1f77b4' if i not in top_3_maanden else '#ff7f0e' for i in range(len(monthly_data['FLT']))]
 
     # Maak de Plotly Express bar plot
-    fig4 = px.bar(
-        top_3_df, 
-        x='Maand', 
-        y='Aantal Uitgaande Vluchten', 
-        title='Grafiek 4: Top 3 Drukste Maanden voor Uitgaande Vluchten voor ' + geselecteerde_land + ' (2019-2020)',
-        labels={'Aantal Uitgaande Vluchten': 'Aantal Uitgaande Vluchten', 'Maand': 'Maand'},
-        color_discrete_sequence=['orange']  # Zet de kleur naar oranje
-    )
+
+    fig4 = go.Figure()
+
+    fig4.add_trace(go.Bar(
+        x = monthly_data['month'],
+        y = monthly_data['FLT'],
+        name='Aantal ' + vlucht_richting + ' Vluchten',
+        marker_color=colors
+    ))
+    fig4.add_trace(go.Scatter(x=monthly_data['month'], 
+                    y=monthly_data['Delay_Minutes'],
+                    mode='lines+markers',
+                    name='Gemiddelde vertraging (min)',
+                    yaxis = "y2"))
 
     # Pas de layout aan
     fig4.update_layout(
+        title='Drukte per maand met de gemiddelde vertraging (' + vlucht_richting + ' vluchten) ',
         xaxis_title='Maand',
-        yaxis_title='Aantal Uitgaande Vluchten',
+        yaxis=dict(
+            title='Aantal Vluchten',
+            tickfont=dict(size=12),
+            autorange=True  # Laat deze as automatisch schalen
+        ),
+        yaxis2=dict(
+            title="Delay Minutes",
+            overlaying="y",
+            side="right",
+            tickfont=dict(size=12),
+            autorange=True  # Laat deze as automatisch schalen
+        ),
         xaxis_tickangle=-45,
         template='plotly_white',
         title_font=dict(size=16),
         xaxis=dict(tickfont=dict(size=10)),
-        yaxis=dict(tickfont=dict(size=12))
-    )
 
-    fig4.update_xaxes(categoryorder='total descending')
+        # Legenda onder de grafiek plaatsen
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.3,  # Verschuif de legenda naar onderen
+            xanchor="center",
+            x=0.5
+        )
+    )
 
     #-------------------------------------------------------
     # Plot 6
