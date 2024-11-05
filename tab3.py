@@ -61,7 +61,7 @@ def load_tab3():
     merge.dropna(inplace=True)
 
     # voeg data toe met dubbele waardes verwijderd
-    unique_icao_orgdes = merge[['ICAO', 'Org/Des', 'Longitude', 'Latitude']].drop_duplicates()
+    unique_icao_orgdes = merge[['ICAO', 'Name', 'Org/Des', 'Longitude', 'Latitude']].drop_duplicates()
 
     # vervang de punten met commas 
     unique_icao_orgdes['Latitude'] = unique_icao_orgdes['Latitude'].str.replace(',', '.').astype(float)
@@ -217,7 +217,7 @@ def load_tab3():
         for idx, row in data.iterrows():
             folium.Marker(
                 location=[row['Latitude'], row['Longitude']],
-                popup=(f"Airport: {row['ICAO']} "
+                popup=(f"Airport: {row['Name']} "
                         f"Ratio: {row['Ratio (%)']}"),
                 icon=folium.Icon(icon='plane', prefix='fa', color=get_delay_color(row['Ratio (%)']))
             ).add_to(m)

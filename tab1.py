@@ -375,23 +375,23 @@ def load_tab1():
 
     st.markdown("---")
     st.subheader("Luchthaven")
-    
+
     col1, col2 = st.columns(2)
     with col1:
         fig7 = px.histogram(
             luchthaven_df,
-            x = 'ICAO',
+            x = 'Name',
             color = 'LSV'
         )
 
         st.plotly_chart(fig7)
     with col2:
         # Bereken de totaalwaarde
-        totaal_vluchten_luchthaven = luchthaven_df.groupby('ICAO')['Airport ID'].value_counts()
+        totaal_vluchten_luchthaven = luchthaven_df.groupby('Name')['Airport ID'].value_counts()
 
         # Bereken het aantal vertraagde vluchten per maatschappij
         vertraagde_vluchten = luchthaven_df[luchthaven_df['ATA_ATD_ltc'] > luchthaven_df['STA_STD_ltc']]
-        vertraagde_vluchten_luchthaven = vertraagde_vluchten.groupby('ICAO')['Airport ID'].value_counts()
+        vertraagde_vluchten_luchthaven = vertraagde_vluchten.groupby('Name')['Airport ID'].value_counts()
 
         # Maak een DataFrame voor de vertragingsratio
         ratio_luchthaven = pd.DataFrame({
