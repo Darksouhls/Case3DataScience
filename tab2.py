@@ -27,6 +27,7 @@ def load_tab2():
 
     schedule_df = load_data('schedule_airport.csv', ',') 
     df_airports = load_data('airports-extended-clean.csv', ';')
+    airline_df = load_data('airlines.csv', ',')
     wereld_df = load_data('Countries by continents.csv', ',')
 
     df_airports['ICAO'].dropna()
@@ -38,23 +39,11 @@ def load_tab2():
         merge = pd.merge(dataset1, dataset2, left_on=left, right_on=right, how=how)
         return merge
 
-    merge_df = merging(df_airports, schedule_df, 'ICAO', 'Org/Des', 'inner')
+    merge1_df = merging(df_airports, schedule_df, 'ICAO', 'Org/Des', 'inner')
+    merge1_df['FLT'] = merge1_df['FLT'].str.replace(r'\d+', '', regex=True)
+    merge_df = merge1_df.merge(airline_df, left_on ='FLT', right_on = 'IATA', how = 'left', suffixes = ('_fl', '_y'))
+    merge_df.rename(columns={"Name_y": "Airline"}, inplace = True, errors="raise")
 
-    # Verschillende DataFrames aanmaken op basis van een bestaande DataFrame
-    vertraagd = schedule_df[schedule_df['ATA_ATD_ltc'] > schedule_df['STA_STD_ltc']]
-    optijd = schedule_df[schedule_df['ATA_ATD_ltc'] <= schedule_df['STA_STD_ltc']]
-    precies = schedule_df[schedule_df['ATA_ATD_ltc'] == schedule_df['STA_STD_ltc']]
-    eerder = schedule_df[schedule_df['ATA_ATD_ltc'] < schedule_df['STA_STD_ltc']]
-    NogateChange = schedule_df[schedule_df['GAT'] == schedule_df['TAR']]
-    gateChange = schedule_df[schedule_df['GAT'] != schedule_df['TAR']]
-
-    # Een top 5 lijst maken van een bepaalde DataFrame
-    top_5_landen_vertraagd = vertraagd['Org/Des'].value_counts().nlargest(5).index
-    top_5_landen_optijd = optijd['Org/Des'].value_counts().nlargest(5).index
-    top_5_landen_precies = precies['Org/Des'].value_counts().nlargest(5).index
-    top_5_landen_eerder = precies['Org/Des'].value_counts().nlargest(5).index
-
-    
     #-------------------------------------------------------
     #   Plot 1
     #-------------------------------------------------------
@@ -75,7 +64,7 @@ def load_tab2():
     @st.cache_data
     def df_change(continenten, start_datum, eind_datum):
         # Haal de gegevens op voor de geselecteerde continenten en periode
-        change = merge_df[(merge_df['Country'].isin(continenten)) & 
+        change = merge_df[(merge_df['Country_fl'].isin(continenten)) & 
                           (merge_df['STD'] >= start_datum) & 
                           (merge_df['STD'] <= eind_datum)]
         return change
@@ -108,31 +97,29 @@ def load_tab2():
 
     # Zet data om naar maatschappij op basis van vluchtnummer
     maatschappij_df = continent_df
-    maatschappij_df['FLT'] = maatschappij_df['FLT'].str.replace(r'\d+', '', regex=True)
     maatschappij_df = maatschappij_df[maatschappij_df['FLT'] != 'LX'] # LX wordt hier eruit gefilterd, omdat het een grote maatschappij is
     filtered_df = continent_df
-    filtered_df['FLT'] = filtered_df['FLT'].str.replace(r'\d+', '', regex=True) 
     filtered_df = filtered_df[filtered_df['FLT'] == 'LX'] # DataFrame voor alleen LX (grote maatschappij), krijgt eigen plot
 
     fig1 = make_subplots(rows=1, cols=2, subplot_titles=("Data voor Swiss Int. Air Lines",  "Overige Maatschappijen"))
 
     # Maakt plot voor LX data
     fig1.add_trace(go.Histogram(
-        x=filtered_df[filtered_df['STA_STD_ltc'] > filtered_df['ATA_ATD_ltc']]['FLT'], 
+        x=filtered_df[filtered_df['STA_STD_ltc'] > filtered_df['ATA_ATD_ltc']]['Name_y'], 
         name='Eerder dan gepland',
         marker_color= color_eerder,
         legendgroup='Eerder',
         showlegend = True
     ), row = 1, col = 1)
     fig1.add_trace(go.Histogram(
-        x=filtered_df[filtered_df['STA_STD_ltc'] == filtered_df['ATA_ATD_ltc']]['FLT'], 
+        x=filtered_df[filtered_df['STA_STD_ltc'] == filtered_df['ATA_ATD_ltc']]['Name_y'], 
         name='Precies optijd',
         marker_color = color_optijd,
         legendgroup='Optijd',
         showlegend = True
     ), row = 1, col = 1)
     fig1.add_trace(go.Histogram(
-        x=filtered_df[filtered_df['STA_STD_ltc'] < filtered_df['ATA_ATD_ltc']]['FLT'], 
+        x=filtered_df[filtered_df['STA_STD_ltc'] < filtered_df['ATA_ATD_ltc']]['Name_y'], 
         name='Vertraagd',
         marker_color= color_vertraagd,
         legendgroup='Vertraagd',
@@ -141,27 +128,27 @@ def load_tab2():
 
     # Maakt plot voor overige maatschappijen
     fig1.add_trace(go.Histogram(
-        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] > maatschappij_df['ATA_ATD_ltc']]['FLT'], 
+        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] > maatschappij_df['ATA_ATD_ltc']]['Name_y'], 
         name='Eerder dan gepland',
         marker_color = color_eerder,
         legendgroup='Eerder',
         showlegend = True
     ), row = 1, col = 2)
     fig1.add_trace(go.Histogram(
-        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] == maatschappij_df['ATA_ATD_ltc']]['FLT'], 
+        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] == maatschappij_df['ATA_ATD_ltc']]['Name_y'], 
         name='Precies optijd',
         marker_color= color_optijd,
         legendgroup='Optijd',
         showlegend = True
     ), row = 1, col = 2)
     fig1.add_trace(go.Histogram(
-        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] < maatschappij_df['ATA_ATD_ltc']]['FLT'], 
+        x=maatschappij_df[maatschappij_df['STA_STD_ltc'] < maatschappij_df['ATA_ATD_ltc']]['Name_y'], 
         name='Vertraagd',
         marker_color=color_vertraagd,
         legendgroup='Vertraagd',
         showlegend = True
     ), row = 1, col = 2)
-    fig1.update_xaxes(categoryorder='total descending')
+    fig1.update_xaxes(categoryorder='total descending', tickangle = 45)
     fig1.update_layout(barmode='stack', title_text="Geplande gegevens per luchtvaartmaatschappij voor geselecteerde continent(en)")
 
     st.plotly_chart(fig1)
@@ -171,7 +158,7 @@ def load_tab2():
     #--------------------------------------
 
     # Kijkt naar bovenstaande geselecteerde continent en laad de mogelijke landen in
-    beschikbaar_land = continent_df[continent_df['Country'].isin(beschikbare_landen)]['Country'].unique()
+    beschikbaar_land = continent_df[continent_df['Country_fl'].isin(beschikbare_landen)]['Country_fl'].unique()
     geselecteerde_landen = st.multiselect(
         'Selecteer Continent(en)', 
         beschikbaar_land,
@@ -180,7 +167,7 @@ def load_tab2():
 
     # Haal de gegevens op voor de geselecteerde periode en continenten
     country_df = df_change(geselecteerde_landen, formatted_start_date, formatted_end_date)
-
+    country_df.rename(columns={"Name_y": "Airline"}, inplace = True, errors="raise")
      # Toggle voor inbound of outbound selecteren
     flight_direction = st.radio("Selecteer vluchtrichting", options=["Inbound", "Outbound"])
 
@@ -192,33 +179,32 @@ def load_tab2():
         
     # Zet data om naar maatschappij op basis van vluchtnummer
     maatschappij_country_df = country_df
-    maatschappij_country_df['FLT'] = maatschappij_country_df['FLT'].str.replace(r'\d+', '', regex=True)
 
     fig2 = go.Figure()
 
     # Maakt plot voor overige maatschappijen
     fig2.add_trace(go.Histogram(
-        x=maatschappij_country_df[maatschappij_country_df['STA_STD_ltc'] > maatschappij_country_df['ATA_ATD_ltc']]['FLT'], 
+        x=maatschappij_country_df[maatschappij_country_df['STA_STD_ltc'] > maatschappij_country_df['ATA_ATD_ltc']]['Airline'], 
         name='Eerder dan gepland',
         marker_color = color_eerder,
         legendgroup='Eerder',
         showlegend = True
     ))
     fig2.add_trace(go.Histogram(
-        x=maatschappij_country_df[maatschappij_country_df['STA_STD_ltc'] == maatschappij_country_df['ATA_ATD_ltc']]['FLT'], 
+        x=maatschappij_country_df[maatschappij_country_df['STA_STD_ltc'] == maatschappij_country_df['ATA_ATD_ltc']]['Airline'], 
         name='Precies optijd',
         marker_color= color_optijd,
         legendgroup='Optijd',
         showlegend = True
     ))
     fig2.add_trace(go.Histogram(
-        x=maatschappij_country_df[maatschappij_country_df['STA_STD_ltc'] < maatschappij_country_df['ATA_ATD_ltc']]['FLT'], 
+        x=maatschappij_country_df[maatschappij_country_df['STA_STD_ltc'] < maatschappij_country_df['ATA_ATD_ltc']]['Airline'], 
         name='Vertraagd',
         marker_color=color_vertraagd,
         legendgroup='Vertraagd',
         showlegend = True
     ))
-    fig2.update_xaxes(categoryorder='total descending')
+    fig2.update_xaxes(categoryorder='total descending', tickangle=45)
     fig2.update_layout(barmode='stack', title_text="Geplande gegevens per luchtvaartmaatschappij voor geselecteerde land(en)")
 
 
@@ -235,11 +221,11 @@ def load_tab2():
 
     with col2:
         # Bereken de totaalwaarde
-        totaal_vluchten_per_maatschappij = maatschappij_country_df['FLT'].value_counts()
+        totaal_vluchten_per_maatschappij = maatschappij_country_df['Airline'].value_counts()
 
         # Bereken het aantal vertraagde vluchten per maatschappij
         delayed_flights = maatschappij_country_df[maatschappij_country_df['ATA_ATD_ltc'] > maatschappij_country_df['STA_STD_ltc']]
-        delayed_flights_per_maatschappij = delayed_flights['FLT'].value_counts()
+        delayed_flights_per_maatschappij = delayed_flights['Airline'].value_counts()
 
         # Maak een DataFrame voor de vertragingsratio
         ratio_per_maatschappij = pd.DataFrame({
