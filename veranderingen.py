@@ -139,6 +139,40 @@ beschikbare_landen = beschikbare_landen(formatted_start_date, formatted_end_date
             één verhaal verteld worden. Werd er bij de andere datasets alleen naar de data gekeken van Nederland naar Barcelona dan \
             had deze dataset meer kunnen vertellen. Helaas is het onderwerp veranderd en is er dan ook gekozen om deze grafieken niet \
             in het dashboard te laten.")
+
+        st.markdown("---")
+        st.subheader("Kaart aanpassingen")
+        kaart = Image.open('./images/kaart.png')
+        code_ratio = '''totaal_vluchten_per_luchthaven = merge.groupby('ICAO')['Airport ID'].value_counts()
+
+    # Bereken het aantal vertraagde vluchten per maatschappij
+    delayed_vluchten = merge[merge['ATA_ATD_ltc'] > merge['STA_STD_ltc']]
+    delayed_vluchten_per_luchthaven = delayed_vluchten.groupby('ICAO')['Airport ID'].value_counts()
+
+    # Maak een DataFrame voor de vertragingsratio
+    ratio_per_luchthaven = pd.DataFrame({
+        'Totale vluchten': totaal_vluchten_per_luchthaven,
+        'Vertraagde vluchten': delayed_vluchten_per_luchthaven
+    }).fillna(0)  # Vul lege waarden op met 0 voor maatschappijen zonder vertragingen
+
+    # Bereken de vertragingsratio
+    ratio_per_luchthaven['Ratio'] = ratio_per_luchthaven['Vertraagde vluchten'] / ratio_per_luchthaven['Totale vluchten']
+    ratio_per_luchthaven['Ratio (%)'] = (ratio_per_luchthaven['Ratio'] * 100).round(2)'''
+
+        st.image(kaart, caption = 'Aanpassing van de markers van de kaart')
+        st.write("De kaart is aangepast om de vliegvelden te laten zien met een kleur aanduiding over de ratio vertraagde vliegtuigen. \
+        Deze ratio is gebasseerd over het totaal aantal vluchten dat in de dataset naar één bepaald vliegveld is gegaan, ongeacht \
+        ingaand of uitgaand, en dan te kijken naar hoeveel vluchten er vertraagd zijn. Daarnaast is de kaart ook vergroot, zodat de \
+        kaart beter leesbaar is in de huidige layout. De manier om deze ratio te berekenen is met onderstaande code gedaan. Hier is te \
+        zien dat er een dataframe is genaamd merge. Hier zitten alle gegevens in over alle vluchten per land per luchthaven. De \
+        luchthavenafkortingen staan in kolom 'ICAO'. Hierbij worden daarna alle 'Airport ID's' geteld om zo het aantal vluchten te \
+        berekenen. Dit is op deze manier gedaan omdat na veel onderzoek het duidelijk was dat er altijd een vlucht in het dataframe \
+        staat. Hierdoor was dit een makkelijke maatstaaf om het totaal aantal vluchten te tellen. Daarna is de dataframe gefilterd \
+        op alleen de vluchten die later dan gepland zijn aangekomen. Dit is ongeacht ingaand of uitgaande vluchten. Dit wordt dan \
+        gedeeltdoor elkaar gedaan om zo op het ratio vertraagde vluchten vergeleken met alle vluchten te berekenen.")
+
+        st.code(code_ratio, language="python")
+
     else: 
         st.header("Overige aanpassingen")
         st.markdown("---")
