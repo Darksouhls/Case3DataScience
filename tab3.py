@@ -55,6 +55,24 @@ def load_tab3():
     unique_icao_orgdes['Latitude'] = unique_icao_orgdes['Latitude'].str.replace(',', '.').astype(float)
     unique_icao_orgdes['Longitude'] = unique_icao_orgdes['Longitude'].str.replace(',', '.').astype(float)
 
+     # Stel de minimum- en maximumdatum in voor de slider
+    min_date = datetime.date(2019, 1, 1)
+    max_date = datetime.date(2020, 12, 31)
+
+    # Maak een slider om een datum te selecteren
+    selected_date = st.slider(
+        "Selecteer een datum tot:",
+        min_value=min_date,
+        max_value=max_date,
+        value=max_date,  # Standaardwaarde
+        format="YYYY-MM-DD"
+    )
+
+    st.write("Geselecteerde datum:", selected_date)
+
+    merge['STD'] = pd.to_datetime(merge['STD'], format="%d/%m/%Y").dt.date
+    merge = merge[merge['STD'] <= selected_date]
+
     merge['FLT'] = merge['FLT'].str.replace(r'\d+', '', regex=True)
     
     totaal_vluchten_per_luchthaven = merge.groupby('ICAO')['Airport ID'].value_counts()
