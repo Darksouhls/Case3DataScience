@@ -123,6 +123,13 @@ beschikbare_landen = beschikbare_landen(formatted_start_date, formatted_end_date
 
         st.markdown('---')    
 
+        st.subheader("Toevoeging")
+        Luchthaven = Image.open('./images/Screenshot_70.png')
+        st.image(Luchthaven, caption='Ratio vertraagde vliegtuigen per land per luchthaven')
+        st.write("Deze plot is toegevoegd om de ratio van de vertraging per luchthaven in het land te laten zien. Deze toevoeging \
+        is erbij gezet om de rode draad in het verhaal te verbeteren. Op deze manier kan de gebruiker een betere beslissing maken \
+        over het onderwerp")
+
     elif veranderingen == "Kaart v2":
         st.header("Kaart-tabblad aanpassingen")
         st.markdown('---')
