@@ -11,7 +11,7 @@ st.set_page_config(
     layout = "wide",
     initial_sidebar_state = "auto"
 )
-
+st.write('Source Kaggle en Dlo')
 # Sidebar for Mode Selection
 mode = st.sidebar.radio("Wat wil je zien", options=["Veranderingen van de app", "Nieuwe app"], index=1)
 

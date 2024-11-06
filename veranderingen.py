@@ -241,4 +241,9 @@ beschikbare_landen = beschikbare_landen(formatted_start_date, formatted_end_date
             het land en de periode waarop vertrokken wordt.')
 
         st.markdown("---")
+
+        st.subheader("Eventuele veranderingen voor de toekomst")
+        st.write("Een grote verandering die gemaakt moet worden voor de gebruiker is tekst bij elke plot om aan te geven \
+        wat elke plot betekent. Dit zorgt ervoor dat het duidelijker voor de gebruiker is wat de app inhoudt en wat de gebruiker \
+        per plot kan doen met de informatie die erin zit.")
     return load_verandering
